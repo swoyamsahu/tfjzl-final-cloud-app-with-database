@@ -125,24 +125,42 @@ def extract_answers(request):
 def show_exam_result(request, course_id, submission_id):
     context = {}
     
+    # Get the course and submission objects
     course = get_object_or_404(Course, pk=course_id)
     submission = Submission.objects.get(id=submission_id)
     
+    # Get all selected choices for the submission
     choices = submission.choices.all()
     
     total_score = 0
+    total_questions = 0
     
+    # Get all the questions related to this course
     questions = course.question_set.all()
     
     for question in questions:
+        # Get correct choices for the question
         correct_choices = question.choice_set.filter(is_correct=True)
+        # Get the choices selected by the user for this question
         selected_choices = choices.filter(question=question)
         
+        # Check if the selected choices match the correct choices
         if set(correct_choices) == set(selected_choices):
             total_score += question.grade
+        total_questions += 1
     
     context['course'] = course
     context['grade'] = total_score
     context['choices'] = choices
+    context['total_questions'] = total_questions
+    
+    # Determine if the user passed or failed
+    if total_score / total_questions * 100 >= 80:
+        context['result_message'] = f"Congratulations, {request.user.first_name}! You have passed the exam with a score of {total_score}/{total_questions * 100}."
+        context['result_class'] = 'alert-success'  # Pass - Green
+    else:
+        context['result_message'] = f"Failed. Sorry, {request.user.first_name}! You have failed the exam with a score of {total_score}/{total_questions * 100}."
+        context['result_class'] = 'alert-danger'  # Fail - Red
     
     return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
+
